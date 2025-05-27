@@ -1,33 +1,72 @@
 import mongoose from "mongoose";
 
 const fantasyTeamSchema = new mongoose.Schema({
-  user: {
+  userId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    required: true
+    ref: "User",
+    required: true,
   },
-  match: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Match',
-    required: true
+  players: {
+    type: [Number],
+    validate: {
+      validator: function (v) {
+        return v.length === 11;
+      },
+      message: props => `Fantasy team must have exactly 11 players, but got ${props.value.length}`,
+    },
+    required: true,
   },
-  players: [{
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Player',
-    required: true
-  }],
-  captain: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Player',
-    required: true
+  contestPrize: {
+    type: Number,
+    required: true,
   },
-  viceCaptain: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Player',
-    required: true
+  matchId: {
+    type: Number,
+    required: true,
+  },
+  seasonId: {
+    type: Number,
+    required: true,
+  },
+  localTeamName: {
+    type: String,
+    required: true,
+  },
+  localTeamCode: {
+    type: String,
+    required: true,
+  },
+  localTeamLogo: {
+    type: String,
+    required: true,
+  },
+  visitorTeamName: {
+    type: String,
+    required: true,
+  },
+  visitorTeamCode: {
+    type: String,
+    required: true,
+  },
+  visitorTeamLogo: {
+    type: String,
+    required: true,
+  },
+  localTeamId: {
+    type: Number,
+    required: true,
+  },
+  visitorTeamId: {
+    type: Number,
+    required: true,
+  },
+  startingAt: {
+    type: Date,
+    required: true,
   },
 }, {
-  timestamps: true
+  timestamps: true,
+  versionKey: false,
 });
 
-export default new mongoose.model('FantasyTeam', fantasyTeamSchema);
+export default mongoose.model("FantasyTeam", fantasyTeamSchema);

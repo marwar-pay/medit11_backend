@@ -25,7 +25,11 @@ const userSchema = new mongoose.Schema({
     type: String,
     enum: ['admin', 'user'],
     default: 'user'
-  }
+  },
+  wallet: {
+    type: Number,
+    default: 0
+  },
 }, {
   timestamps: true
 });

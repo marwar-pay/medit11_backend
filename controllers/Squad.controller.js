@@ -1,5 +1,6 @@
 import axios from "axios";
 import APIResponse from "../utilities/APIResponse.js";
+import Team from "../utilities/Team.js";
 
 class SquadController {
     async getSquadById(req, res) {
@@ -11,34 +12,7 @@ class SquadController {
 
             if (seasonData.hasOwnProperty("data") && seasonData.data.length > 0) {
                 const season = seasonData.data[0];
-
-                const teams = await Promise.all(teamIds.map(async (teamId) => {
-                    console.log(`https://cricket.sportmonks.com/api/v2.0/teams/${teamId}/squad/${season.id}?api_token=${process.env.SPORTMONKS_API_KEY}`);
-
-                    const { data: teamData } = await axios.get(`https://cricket.sportmonks.com/api/v2.0/teams/${teamId}/squad/${season.id}?api_token=${process.env.SPORTMONKS_API_KEY}`);
-
-                    if (teamData.hasOwnProperty("data")) {
-                        const team = teamData.data;
-                        return {
-                            id: team.id,
-                            name: team.name,
-                            image_path: team.image_path,
-                            squad: team.squad.map(player => {
-                                return {
-                                    id: player.id,
-                                    first_name: player.first_name,
-                                    last_name: player.last_name,
-                                    image_path: player.image_path,
-                                    position: player.position,
-                                    batting_style: player.batting_style,
-                                    bowling_style: player.bowling_style,
-                                }
-                            })
-                        };
-                    }
-                    return null;
-                }));
-                console.log(" Squad.controller.js:29 ~ SquadController ~ teams ~ teams:", teams);
+                const teams = await Team.getSquadDetails(teamIds, season.id);
 
                 return res.json(new APIResponse(200, "Squad retrieved successfully", teams.filter(team => team !== null)));
             }

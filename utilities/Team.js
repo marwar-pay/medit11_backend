@@ -25,6 +25,42 @@ class Team {
             throw new Error("Failed to retrieve team name");
         }
     }
+
+    async getSquadDetails(teamIds, seasonId) {
+        try {
+            const teams = await Promise.all(teamIds.map(async (teamId) => {
+                const { data: teamData } = await axios.get(`https://cricket.sportmonks.com/api/v2.0/teams/${teamId}/squad/${seasonId}?api_token=${process.env.SPORTMONKS_API_KEY}`);
+                if (teamData.hasOwnProperty("data")) {
+                    const team = teamData.data;
+                    return {
+                        id: team.id,
+                        name: team.name,
+                        image_path: team.image_path,
+                        seasonId: seasonId,
+                        code: team.code,
+                        squad: team.squad.map(player => {
+                            return {
+                                id: player.id,
+                                first_name: player.firstname,
+                                last_name: player.lastname,
+                                image_path: player.image_path,
+                                position: player.position,
+                                batting_style: player.battingstyle,
+                                bowling_style: player.bowlingstyle,
+                            }
+                        })
+                    };
+                }
+                return null;
+            }));
+
+            return teams;
+        } catch (error) {
+            console.error("Error retrieving squad details:", error);
+            throw new Error("Failed to retrieve squad details");
+        }
+    }
+
 }
 
 export default new Team();

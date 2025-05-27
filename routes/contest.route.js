@@ -1,8 +1,11 @@
 import express from 'express';
-import ContestFinanceController from '../controllers/ContestFinance.controller.js';
+import ContestsController from '../controllers/Contests.controller.js';
+import auth from '../middlewares/auth.js';
 
 const router = express.Router();
 
-router.route("/").get(ContestFinanceController.getContestFee);
+router.route("/contest-fee").get(auth, ContestsController.getContestFee);
+
+router.route("/joined-contests").get(auth, ContestsController.getJoinedContests);
 
 export default router;

@@ -19,7 +19,6 @@ class MatchController {
             const { data } = await axios.get(`https://cricket.sportmonks.com/api/v2.0/fixtures?api_token=${process.env.SPORTMONKS_API_KEY}&filter[league_id]=${leagueId}&&filter[starts_between]=${startsBetween}&page=${page}&sort=starting_at`)
 
             if (data.hasOwnProperty("data") && data.data.length > 0) {
-
                 const teamIds = data.data.reduce((acc, match) => {
                     if (match.localteam_id) acc.push(match.localteam_id);
                     if (match.visitorteam_id) acc.push(match.visitorteam_id);
@@ -49,9 +48,12 @@ class MatchController {
                     localteam_logo: teamMap[match.localteam_id].image_path,
                     visitorteam_logo: teamMap[match.visitorteam_id].image_path,
                 }));
+                console.log(" Match.controller.js:52 ~ MatchController ~ getMatches ~ matches:", matches);
 
-                res.json(new APIResponse(200, "Matches retrieved successfully", matches));
+
+                return res.json(new APIResponse(200, "Matches retrieved successfully", matches));
             }
+            return res.status(404).json(new APIResponse(404, "No matches found for the given league"));
 
         } catch (error) {
             console.error("Error retrieving matches:", error);
