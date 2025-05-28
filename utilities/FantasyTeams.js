@@ -21,6 +21,12 @@ class FantasyTeams {
 
             this.lastUpdateTimes.set(matchId, now);
 
+            let isExists = await FantasyPointsPerMatchModel.findOne({ matchId });
+
+            if (isExists && isExists.isFinished) {
+                return;
+            }
+
             // const { data: liveMatches } = await axios.get(`https://cricket.sportmonks.com/api/v2.0/livescores?api_token=${process.env.SPORTMONKS_API_KEY}`);
             const { data } = await axios.get(`https://cricket.sportmonks.com/api/v2.0/fixtures/${matchId}?api_token=${process.env.SPORTMONKS_API_KEY}&include=batting,bowling,scoreboards,balls,balls.batsman,balls.bowler,balls.batsmanout,balls.catchstump,balls.runoutby`)
 
@@ -31,9 +37,14 @@ class FantasyTeams {
             const liveMatch = data.data;
             if (liveMatch.status === "NS") {
                 return [];
+            } else if (liveMatch.status === "Finished") {
+                await FantasyPointsPerMatchModel.findOneAndUpdate({ matchId }, {
+                    isFinished: true
+                })
+                this.lastUpdateTimes.delete(matchId);
+                return;
             }
 
-            let isExists = await FantasyPointsPerMatchModel.findOne({ matchId });
             if (!isExists) {
                 const result = [];
                 const teams = await Team.getSquadDetails([liveMatch.localteam_id, liveMatch.visitorteam_id], liveMatch.season_id);

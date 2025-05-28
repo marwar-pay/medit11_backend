@@ -25,7 +25,7 @@ const playerPointsSchema = new mongoose.Schema({
         type: String,
         required: true,
     }
-}, {_id: false, versionKey: false });
+}, { _id: false, versionKey: false });
 
 const fantasyPointsPerMatchSchema = new mongoose.Schema({
     matchId: {
@@ -40,9 +40,13 @@ const fantasyPointsPerMatchSchema = new mongoose.Schema({
     players: {
         type: [playerPointsSchema],
         required: true,
+    },
+    isFinished: {
+        type: Boolean,
+        default: false
     }
 },
     { timestamps: true, versionKey: false });
 
-export default  mongoose.model("FantasyPointsPerMatch", fantasyPointsPerMatchSchema);
+export default mongoose.model("FantasyPointsPerMatch", fantasyPointsPerMatchSchema);
 ;

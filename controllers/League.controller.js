@@ -5,7 +5,6 @@ class LeagueController {
     async getLeagues(req, res) {
         try {
             const { leagueId = '' } = req.query;
-            console.log(`https://cricket.sportmonks.com/api/v2.0/leagues/${leagueId}?api_token=${process.env.SPORTMONKS_API_KEY}`);
             
             const { data } = await axios.get(`https://cricket.sportmonks.com/api/v2.0/leagues?api_token=${process.env.SPORTMONKS_API_KEY}&${leagueId}`);
 

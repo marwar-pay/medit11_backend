@@ -18,7 +18,6 @@ const validate = (source, schema) => {
         }
 
         const { error } = schema.validate(req[source], { abortEarly: false });
-        console.log(req[source]);
 
         if (error) {
             return res.status(400).json({

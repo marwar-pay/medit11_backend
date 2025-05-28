@@ -48,8 +48,6 @@ class MatchController {
                     localteam_logo: teamMap[match.localteam_id].image_path,
                     visitorteam_logo: teamMap[match.visitorteam_id].image_path,
                 }));
-                console.log(" Match.controller.js:52 ~ MatchController ~ getMatches ~ matches:", matches);
-
 
                 return res.json(new APIResponse(200, "Matches retrieved successfully", matches));
             }
