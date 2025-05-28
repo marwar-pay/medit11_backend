@@ -5,6 +5,7 @@ import FantasyTeamModel from "../models/fantasyTeam.model.js";
 import mongoose from "mongoose";
 import Team from "../utilities/Team.js";
 import FantasyTeams from "../utilities/FantasyTeams.js";
+import FantasyPointModel from "../models/fantasyPoint.model.js";
 
 class FantasyTeamController {
 
@@ -15,7 +16,7 @@ class FantasyTeamController {
             if (index === -1) {
                 throw new Error("Invalid contest prize");
             }
-            return true;
+            return isValidPrize[0].distribution[index];
         } catch (error) {
             console.error("Error in validator:", error);
             throw new Error("Validation failed");
@@ -26,8 +27,10 @@ class FantasyTeamController {
         try {
             const { players, contestPrize, matchId, seasonId } = req.body;
             const user = req.user;
+            console.log(" FantasyTeam.controller.js:30 ~ FantasyTeamController ~ createFantasyTeam ~ user:", user);
 
-            await this.#prizeDistributionValidator(contestPrize);
+
+            const prizeDistribution = await this.#prizeDistributionValidator(contestPrize);
 
             const { data } = await axios.get(`https://cricket.sportmonks.com/api/v2.0/fixtures/${matchId}?api_token=${process.env.SPORTMONKS_API_KEY}`);
 
@@ -44,7 +47,12 @@ class FantasyTeamController {
             }
 
             const combinedTeamPlayers = [...teams[0].squad, ...teams[1].squad];
-            const playerDetails = combinedTeamPlayers.filter(player => players.some(p => p === player.id));
+            // const playerDetails = combinedTeamPlayers.filter(player => players.some(p => p === player.id));
+            const uniqueCombinedPlayers = Array.from(
+                new Map(combinedTeamPlayers.map(p => [p.id, p])).values()
+            );
+
+            const playerDetails = uniqueCombinedPlayers.filter(player => players.includes(player.id));
 
             if (playerDetails.length !== players.length) {
                 return res.status(400).json(new APIResponse(400, "Some players not found in the teams"));
@@ -58,9 +66,10 @@ class FantasyTeamController {
                 const fantasyTeam = {
                     userId: user._id,
                     players: playerDetails.map(player => player.id),
-                    contestPrize,
+                    contestPrize: prizeDistribution,
                     matchId,
                     seasonId,
+                    leagueId: data.data.league_id,
                     localTeamId: data.data.localteam_id,
                     visitorTeamId: data.data.visitorteam_id,
                     startingAt: data.data.starting_at,
@@ -84,8 +93,9 @@ class FantasyTeamController {
 
         } catch (error) {
             console.error("Error in createFantasyTeam:", error);
-            res.status(500).json(new APIResponse(500, "Internal Server Error", error.message));
-
+            const errorMessage = error?.response?.statusText;
+            const status = error?.response?.status;
+            res.status(status || 500).json(new APIResponse(status || 500, errorMessage || error.message));
         }
     }
 
@@ -101,10 +111,10 @@ class FantasyTeamController {
             if (!teams || teams.length === 0) {
                 return res.status(404).json(new APIResponse(500, "Internal Server Error"));
             }
-            //////////////////////////////////////////////////////
-            FantasyTeams.updateFantasyPoints(fantasyTeam.matchId);
-            //////////////////////////////////////////////////////
+            FantasyTeams.updateFantasyPoints.call(FantasyTeams, fantasyTeam.matchId);
+            const fantasyPoints = await FantasyPointModel.findOne({ matchId: fantasyTeam.matchId });
             const result = [];
+
             for (const team of teams) {
                 for (const player of team.squad) {
                     if (fantasyTeam.players.includes(player.id)) {
@@ -118,18 +128,24 @@ class FantasyTeamController {
                             playerImage: player.image_path,
                             teamName: team.name,
                             teamImage: team.image_path,
+                            fantasyPoint: fantasyPoints?.players?.find(fp => fp.playerId === player.id)?.fantasyPoints || 0
                         });
                     }
                 }
             }
+            const userFantasyTeam = fantasyTeam.toObject();
+            delete userFantasyTeam.players;
+            delete userFantasyTeam.contestPrize;
             res.json(new APIResponse(200, "Fantasy team retrieved successfully", {
-                fantasyTeam,
+                fantasyTeam: userFantasyTeam,
                 players: result,
             }));
 
         } catch (error) {
-            console.error("Error in getFantasyTeamById:", error);
-            res.status(500).json(new APIResponse(500, "Internal Server Error", error.message));
+            console.error("Error in getFantasyTeamById:", error?.response?.data);
+            const errorMessage = error?.response?.statusText;
+            const status = error?.response?.status;
+            res.status(status || 500).json(new APIResponse(status || 500, errorMessage || error.message));
         }
     }
 
@@ -208,7 +224,9 @@ class FantasyTeamController {
 
         } catch (error) {
             console.error("Error in editFantasyTeam:", error);
-            res.status(500).json(new APIResponse(500, "Internal Server Error", error.message));
+            const errorMessage = error?.response?.statusText;
+            const status = error?.response?.status;
+            res.status(status || 500).json(new APIResponse(status || 500, errorMessage || error.message));
         }
     }
 }

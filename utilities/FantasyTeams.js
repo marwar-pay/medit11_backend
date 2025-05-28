@@ -4,25 +4,25 @@ import FantasyPointsPerMatchModel from "../models/fantasyPoint.model.js";
 import fantasyPointsSystem from "../config/fantasyPointsSystem.js";
 
 class FantasyTeams {
-
     constructor() {
-        this.lastUpdateTime = 0;
+        this.lastUpdateTimes = new Map();
     }
 
-
     async updateFantasyPoints(matchId) {
-        const now = Date.now();
-        const TWO_MINUTES = 2 * 60 * 1000;
-
-        if (now - this.lastUpdateTime < TWO_MINUTES) {
-            console.log("updateFantasyPoints called too soon. Skipping...");
-            return;
-        }
-        this.lastUpdateTime = now;
-
         try {
+            const now = Date.now();
+            const TWO_MINUTES = 2 * 60 * 1000;
+
+            const lastUpdateTime = this.lastUpdateTimes.get(matchId) || 0;
+
+            if (now - lastUpdateTime < TWO_MINUTES) {
+                return;
+            }
+
+            this.lastUpdateTimes.set(matchId, now);
+
             // const { data: liveMatches } = await axios.get(`https://cricket.sportmonks.com/api/v2.0/livescores?api_token=${process.env.SPORTMONKS_API_KEY}`);
-            const { data } = await axios.get(`https://cricket.sportmonks.com/api/v2.0/fixtures/65603?api_token=${process.env.SPORTMONKS_API_KEY}&include=batting,bowling,scoreboards,balls,balls.batsman,balls.bowler,balls.batsmanout,balls.catchstump,balls.runoutby`)
+            const { data } = await axios.get(`https://cricket.sportmonks.com/api/v2.0/fixtures/${matchId}?api_token=${process.env.SPORTMONKS_API_KEY}&include=batting,bowling,scoreboards,balls,balls.batsman,balls.bowler,balls.batsmanout,balls.catchstump,balls.runoutby`)
 
             if (!data.hasOwnProperty("data") || data.data.length === 0) {
                 return [];
@@ -57,38 +57,119 @@ class FantasyTeams {
                 isExists ??= await FantasyPointsPerMatchModel.create(fantasyPointsData);
             }
 
-            data.data.batting.map(bat => {
-                const score = bat.score || 0;
-                const balls = bat.ball || 0;
-                const strickRate = bat.rate || score / balls * 100 || 0;
-                const fours = bat.four_x;
-                const sixes = bat.six_x;
-                let points = 0;
-                const battingPointSystem = fantasyPointsSystem.find(x => x.type === "batting").points;
-                points += battingPointSystem.run * score;
-                points += battingPointSystem.boundary_bonus * fours;
-                points += battingPointSystem.six_bonus * sixes;
-                const strickRatePointSystem = fantasyPointsSystem.find(x => x.type === "strickRate");
-                if (balls > strickRatePointSystem.min_balls) {
-                    if (strickRate > 170) {
-                        points += strickRatePointSystem.points.above_170;
-                    } else if (strickRate > 150) {
-                        points += strickRatePointSystem.points["150.01_to_170"];
-                    } else if (strickRate >= 130) {
-                        points += strickRatePointSystem.points["130_to_150"];
-                    } else if (strickRate > 60 && strickRate < 70 && data.data.type === "T20") {
-                        points -= strickRatePointSystem.points["60_to_70"]
-                    } else if (strickRate > 50 && strickRate < 60 && data.data.type === "T20") {
-                        points -= strickRatePointSystem.points["50_to_59.99"]
-                    } else if (data.data.type === "T20" && strickRate < 50) {
-                        points -= strickRatePointSystem.points.below_50;
-                    }
-                }
-            })
-
+            await this.#fantasyPointsHandler(liveMatch)
         } catch (error) {
             console.error("Error in getFantasyTeams:", error);
         }
+    }
+
+    async #fantasyPointsHandler(matchData) {
+        const points = {};
+
+        const getPoints = (type) => fantasyPointsSystem.find(x => x.type === type)?.points || {};
+        const getPlayerKey = (playerId) => playerId.toString();
+
+        const battingPts = getPoints("batting");
+        const bowlingPts = getPoints("bowling");
+        const fieldingPts = getPoints("fielding");
+
+        const battingStats = {};
+        const bowlingStats = {};
+
+        for (const ball of matchData.balls || []) {
+            const { batsman_id, bowler_id, batsmanout_id, catchstump_id, runout_by_id, score } = ball;
+
+            const batsmanKey = getPlayerKey(batsman_id);
+            const bowlerKey = getPlayerKey(bowler_id);
+
+            // === Batting points ===
+            if (score?.runs) {
+                points[batsmanKey] = (points[batsmanKey] || 0) + (score.runs * battingPts.run);
+            }
+
+            if (score?.four) points[batsmanKey] += battingPts.boundary_bonus;
+            if (score?.six) points[batsmanKey] += battingPts.six_bonus;
+
+            // Save batting stats
+            if (!battingStats[batsmanKey]) battingStats[batsmanKey] = { runs: 0, balls: 0 };
+            battingStats[batsmanKey].runs += score?.runs || 0;
+            if (score?.ball) battingStats[batsmanKey].balls += 1;
+
+            // === Bowling points ===
+            if (!bowlingStats[bowlerKey]) bowlingStats[bowlerKey] = { dots: 0, wickets: 0, overs: 0, maidenBalls: 0 };
+
+            if (score?.ball && score.runs === 0) {
+                points[bowlerKey] = (points[bowlerKey] || 0) + bowlingPts.dot_ball;
+                bowlingStats[bowlerKey].dots += 1;
+            }
+
+            if (score?.is_wicket && batsmanout_id) {
+                points[bowlerKey] = (points[bowlerKey] || 0) + bowlingPts.wicket;
+
+                // LBW or bowled
+                const isLbwOrBowled = !catchstump_id && !runout_by_id;
+                if (isLbwOrBowled) points[bowlerKey] += bowlingPts.lbw_bowled_bonus;
+
+                bowlingStats[bowlerKey].wickets += 1;
+            }
+
+            // === Fielding points ===
+            const fielderIds = [catchstump_id, runout_by_id].filter(Boolean);
+            for (const fielderId of fielderIds) {
+                const fKey = getPlayerKey(fielderId);
+                if (fielderId === catchstump_id) {
+                    points[fKey] = (points[fKey] || 0) + fieldingPts.catch;
+                } else {
+                    points[fKey] = (points[fKey] || 0) + fieldingPts.run_out_hit;
+                }
+            }
+        }
+
+        // Bonus points for batting
+        for (const [pid, stat] of Object.entries(battingStats)) {
+            const { runs, balls } = stat;
+            const sr = balls > 0 ? (runs / balls) * 100 : 0;
+
+            if (runs >= 100) points[pid] += battingPts.bonus_100_runs;
+            else if (runs >= 75) points[pid] += battingPts.bonus_75_runs;
+            else if (runs >= 50) points[pid] += battingPts.bonus_50_runs;
+            else if (runs >= 25) points[pid] += battingPts.bonus_25_runs;
+            else if (runs === 0 && balls > 0) points[pid] += battingPts.duck_penalty;
+
+            const strikeRateSystem = fantasyPointsSystem.find(x => x.type === "strickRate");
+            if (balls >= strikeRateSystem.min_balls) {
+                const srPoints = strikeRateSystem.points;
+                if (sr > 170) points[pid] += srPoints.above_170;
+                else if (sr > 150) points[pid] += srPoints["150.01_to_170"];
+                else if (sr >= 130) points[pid] += srPoints["130_to_150"];
+                else if (sr > 60 && sr < 70) points[pid] -= srPoints["60_to_70"];
+                else if (sr > 50 && sr <= 59.99) points[pid] -= srPoints["50_to_59.99"];
+                else if (sr <= 50) points[pid] -= srPoints.below_50;
+            }
+        }
+
+        // Bonus points for bowling
+        for (const [pid, stat] of Object.entries(bowlingStats)) {
+            const { wickets, dots } = stat;
+            if (wickets >= 5) points[pid] += bowlingPts.five_wicket_bonus;
+            else if (wickets >= 4) points[pid] += bowlingPts.four_wicket_bonus;
+            else if (wickets >= 3) points[pid] += bowlingPts.three_wicket_bonus;
+
+            // const maidens = Math.floor(dots / 6);
+            // points[pid] += maidens * bowlingPts.maiden_over;
+        }
+        const existing = await FantasyPointsPerMatchModel.findOne({ matchId: matchData.id });
+        if (!existing) throw new Error("Match not initialized in DB");
+
+        const updatedPlayers = existing.players.map(player => ({
+            ...player.toObject(),
+            fantasyPoints: Math.floor(points[player.playerId?.toString()] || 0)
+        }));
+
+        existing.players = updatedPlayers;
+        await existing.save();
+
+        return updatedPlayers;
     }
 }
 

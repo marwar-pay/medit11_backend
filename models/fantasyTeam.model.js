@@ -17,8 +17,21 @@ const fantasyTeamSchema = new mongoose.Schema({
     required: true,
   },
   contestPrize: {
-    type: Number,
-    required: true,
+    type: new mongoose.Schema({
+      entree_fee: {
+        type: Number,
+        required: true,
+      },
+      prize: {
+        type: Number,
+        required: true,
+      },
+      prize_distribution: {
+        type: Object,
+        required: true,
+      }
+    }, { _id: false }),
+    required: true
   },
   matchId: {
     type: Number,
@@ -64,6 +77,11 @@ const fantasyTeamSchema = new mongoose.Schema({
     type: Date,
     required: true,
   },
+  leagueId: {
+    type: Number,
+    required: true
+  },
+
 }, {
   timestamps: true,
   versionKey: false,

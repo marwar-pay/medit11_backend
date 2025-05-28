@@ -31,8 +31,8 @@ export default
                 "catch": 8,
                 "three_catch_bonus": 4,
                 "stumping": 12,
-                "run_out_direct_hit": 12,
-                "run_out_indirect_hit": 6
+                // "run_out_direct_hit": 12,
+                "run_out_hit": 6
             }
         },
         {

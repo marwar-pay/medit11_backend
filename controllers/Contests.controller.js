@@ -17,10 +17,10 @@ class ContestController {
         try {
             const userId = req.user._id;
             const projection = [
-                "players",
                 "contestPrize",
                 "matchId",
                 "seasonId",
+                "contestPrize",
                 "localTeamName",
                 "localTeamCode",
                 "localTeamLogo",
