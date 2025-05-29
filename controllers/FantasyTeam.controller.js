@@ -37,10 +37,10 @@ class FantasyTeamController {
             }
 
             if (data.data.status === "Finished") {
-                return res.status(400).json(new APIResponse(400, "Match is already finished!"))
+                // return res.status(400).json(new APIResponse(400, "Match is already finished!"))
             }
 
-                const localTeamId = data.data.localteam_id;
+            const localTeamId = data.data.localteam_id;
             const visitorTeam_id = data.data.visitorteam_id;
 
             const teams = await Team.getSquadDetails([localTeamId, visitorTeam_id], seasonId);

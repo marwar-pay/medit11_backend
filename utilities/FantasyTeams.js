@@ -1,7 +1,7 @@
 import axios from "axios";
 import Team from "./Team.js";
 import FantasyPointsPerMatchModel from "../models/fantasyPoint.model.js";
-import fantasyPointsSystem from "../config/fantasyPointsSystem.js";
+import t20FantasyPointsSystem from "../config/t20FantasyPointsSystem.js";
 
 class FantasyTeams {
     constructor() {
@@ -77,7 +77,7 @@ class FantasyTeams {
     async #fantasyPointsHandler(matchData) {
         const points = {};
 
-        const getPoints = (type) => fantasyPointsSystem.find(x => x.type === type)?.points || {};
+        const getPoints = (type) => t20FantasyPointsSystem.find(x => x.type === type)?.points || {};
         const getPlayerKey = (playerId) => playerId.toString();
 
         const battingPts = getPoints("batting");
@@ -107,11 +107,16 @@ class FantasyTeams {
             if (score?.ball) battingStats[batsmanKey].balls += 1;
 
             // === Bowling points ===
-            if (!bowlingStats[bowlerKey]) bowlingStats[bowlerKey] = { dots: 0, wickets: 0, overs: 0, maidenBalls: 0 };
+            if (!bowlingStats[bowlerKey]) bowlingStats[bowlerKey] = { dots: 0, wickets: 0, overs: 0, maidenBalls: 0, balls: 0, runs: 0 };
 
             if (score?.ball && score.runs === 0) {
                 points[bowlerKey] = (points[bowlerKey] || 0) + bowlingPts.dot_ball;
                 bowlingStats[bowlerKey].dots += 1;
+            }
+
+            if (score?.ball) {
+                bowlingStats[bowlerKey].balls += 1;
+                bowlingStats[bowlerKey].runs += score.runs || 0;
             }
 
             if (score?.is_wicket && batsmanout_id) {
@@ -147,7 +152,7 @@ class FantasyTeams {
             else if (runs >= 25) points[pid] += battingPts.bonus_25_runs;
             else if (runs === 0 && balls > 0) points[pid] += battingPts.duck_penalty;
 
-            const strikeRateSystem = fantasyPointsSystem.find(x => x.type === "strickRate");
+            const strikeRateSystem = t20FantasyPointsSystem.find(x => x.type === "strickRate");
             if (balls >= strikeRateSystem.min_balls) {
                 const srPoints = strikeRateSystem.points;
                 if (sr > 170) points[pid] += srPoints.above_170;
@@ -169,6 +174,27 @@ class FantasyTeams {
             // const maidens = Math.floor(dots / 6);
             // points[pid] += maidens * bowlingPts.maiden_over;
         }
+
+        const economyRateSystem = t20FantasyPointsSystem.find(x => x.type === "economyRate");
+
+        for (const [pid, stat] of Object.entries(bowlingStats)) {
+            const { runs, balls } = stat;
+            const overs = balls / 6;
+
+            if (overs < economyRateSystem.min_overs) continue;
+
+            const econRate = overs > 0 ? runs / overs : 0;
+            const econPoints = economyRateSystem.points;
+
+            if (econRate < 5) points[pid] += econPoints.below_5;
+            else if (econRate < 6) points[pid] += econPoints["5_to_5.99"];
+            else if (econRate <= 7) points[pid] += econPoints["6_to_7"];
+            else if (econRate >= 10 && econRate <= 11) points[pid] -= econPoints["10_to_11"];
+            else if (econRate > 11 && econRate <= 12) points[pid] -= econPoints["11.01_to_12"];
+            else if (econRate > 12) points[pid] -= econPoints.above_12;
+        }
+
+
         const existing = await FantasyPointsPerMatchModel.findOne({ matchId: matchData.id });
         if (!existing) throw new Error("Match not initialized in DB");
 
