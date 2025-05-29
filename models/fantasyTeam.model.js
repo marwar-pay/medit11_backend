@@ -81,6 +81,11 @@ const fantasyTeamSchema = new mongoose.Schema({
     type: Number,
     required: true
   },
+  matchStatus: {
+    type: String,
+    enum: ["Upcoming", "Finished", "Live"],
+    default: "Upcoming"
+  }
 
 }, {
   timestamps: true,

@@ -2,6 +2,7 @@ import axios from "axios";
 import Team from "./Team.js";
 import FantasyPointsPerMatchModel from "../models/fantasyPoint.model.js";
 import t20FantasyPointsSystem from "../config/t20FantasyPointsSystem.js";
+import FantasyTeamModel from "../models/fantasyTeam.model.js";
 
 class FantasyTeams {
     constructor() {
@@ -42,8 +43,21 @@ class FantasyTeams {
                     isFinished: true
                 })
                 this.lastUpdateTimes.delete(matchId);
+                const liveAndUpcomingStatuses = await FantasyTeamModel.find({ matchStatus: { $in: ["Upcoming", "Live"] } });
+                Promise.all(liveAndUpcomingStatuses.map(liveOrUpcomingStatus => {
+                    return FantasyTeamModel.findByIdAndUpdate(liveOrUpcomingStatus._id.toString(), {
+                        matchStatus: "Finished"
+                    })
+                }))
                 return;
             }
+
+            const upcomingStatuses = await FantasyTeamModel.find({ matchStatus: "Upcoming" });
+            Promise.all(upcomingStatuses.map(upcomingStatus => {
+                return FantasyTeamModel.findByIdAndUpdate(upcomingStatus._id.toString(), {
+                    matchStatus: "Live"
+                })
+            }))
 
             if (!isExists) {
                 const result = [];

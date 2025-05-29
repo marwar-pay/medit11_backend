@@ -27,7 +27,7 @@ class FantasyTeamController {
         try {
             const { players, contestPrize, matchId, seasonId } = req.body;
             const user = req.user;
-
+            console.log("here")
             const prizeDistribution = await this.#prizeDistributionValidator(contestPrize);
 
             const { data } = await axios.get(`https://cricket.sportmonks.com/api/v2.0/fixtures/${matchId}?api_token=${process.env.SPORTMONKS_API_KEY}`);
