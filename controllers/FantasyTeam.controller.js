@@ -195,7 +195,7 @@ class FantasyTeamController {
             const updatedFantasyTeam = {
                 ...oldFantasyTeam.toObject(),
                 players: playerDetails.map(player => player.id),
-                contestPrize: contestPrize || oldFantasyTeam.contestPrize,
+                // contestPrize: contestPrize || oldFantasyTeam.contestPrize,
             };
             const updatedTeam = await FantasyTeamModel.findByIdAndUpdate(id, updatedFantasyTeam, { new: true });
             if (!updatedTeam) {
