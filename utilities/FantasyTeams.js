@@ -43,7 +43,7 @@ class FantasyTeams {
                     isFinished: true
                 })
                 this.lastUpdateTimes.delete(matchId);
-                const liveAndUpcomingStatuses = await FantasyTeamModel.find({ matchStatus: { $in: ["Upcoming", "Live"] } });
+                const liveAndUpcomingStatuses = await FantasyTeamModel.find({ matchId, matchStatus: { $in: ["Upcoming", "Live"] } });
                 Promise.all(liveAndUpcomingStatuses.map(liveOrUpcomingStatus => {
                     return FantasyTeamModel.findByIdAndUpdate(liveOrUpcomingStatus._id.toString(), {
                         matchStatus: "Finished"
@@ -52,7 +52,7 @@ class FantasyTeams {
                 return;
             }
 
-            const upcomingStatuses = await FantasyTeamModel.find({ matchStatus: "Upcoming" });
+            const upcomingStatuses = await FantasyTeamModel.find({ matchId, matchStatus: "Upcoming" });
             Promise.all(upcomingStatuses.map(upcomingStatus => {
                 return FantasyTeamModel.findByIdAndUpdate(upcomingStatus._id.toString(), {
                     matchStatus: "Live"
