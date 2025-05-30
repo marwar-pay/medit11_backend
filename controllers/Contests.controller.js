@@ -22,6 +22,7 @@ class ContestController {
                 "seasonId",
                 "leagueId",
                 "contestPrize",
+                "winningAmount",
                 "matchStatus",
                 "localTeamName",
                 "localTeamCode",
