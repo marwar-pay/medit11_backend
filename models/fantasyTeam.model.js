@@ -85,6 +85,14 @@ const fantasyTeamSchema = new mongoose.Schema({
     type: String,
     enum: ["Upcoming", "Finished", "Live"],
     default: "Upcoming"
+  },
+  winningAmount: {
+    type: Number,
+    default: 0
+  },
+  totalFantasyPoints: {
+    type: Number,
+    default: 0
   }
 
 }, {

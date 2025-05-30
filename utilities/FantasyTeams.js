@@ -3,6 +3,7 @@ import Team from "./Team.js";
 import FantasyPointsPerMatchModel from "../models/fantasyPoint.model.js";
 import t20FantasyPointsSystem from "../config/t20FantasyPointsSystem.js";
 import FantasyTeamModel from "../models/fantasyTeam.model.js";
+import prizeDistributionModel from "../models/prizeDistribution.model.js";
 
 class FantasyTeams {
     constructor() {
@@ -19,8 +20,6 @@ class FantasyTeams {
             if (now - lastUpdateTime < TWO_MINUTES) {
                 return;
             }
-
-            this.lastUpdateTimes.set(matchId, now);
 
             let isExists = await FantasyPointsPerMatchModel.findOne({ matchId });
 
@@ -39,18 +38,11 @@ class FantasyTeams {
             if (liveMatch.status === "NS") {
                 return [];
             } else if (liveMatch.status === "Finished") {
-                await FantasyPointsPerMatchModel.findOneAndUpdate({ matchId }, {
-                    isFinished: true
-                })
-                this.lastUpdateTimes.delete(matchId);
-                const liveAndUpcomingStatuses = await FantasyTeamModel.find({ matchId, matchStatus: { $in: ["Upcoming", "Live"] } });
-                Promise.all(liveAndUpcomingStatuses.map(liveOrUpcomingStatus => {
-                    return FantasyTeamModel.findByIdAndUpdate(liveOrUpcomingStatus._id.toString(), {
-                        matchStatus: "Finished"
-                    })
-                }))
+                this.#winnersHandler(matchId)
                 return;
             }
+
+            this.lastUpdateTimes.set(matchId, now);
 
             const upcomingStatuses = await FantasyTeamModel.find({ matchId, matchStatus: "Upcoming" });
             Promise.all(upcomingStatuses.map(upcomingStatus => {
@@ -221,6 +213,72 @@ class FantasyTeams {
         await existing.save();
 
         return updatedPlayers;
+    }
+
+    async #winnersHandler(matchId) {
+        try {
+            const playerPoints = await FantasyPointsPerMatchModel.findOneAndUpdate({ matchId }, {
+                isFinished: true
+            })
+            this.lastUpdateTimes.delete(matchId);
+            const playerToPoints = {};
+            playerPoints.players.forEach(player => {
+                playerToPoints[player.playerId] = player.fantasyPoints;
+            })
+
+            const liveAndUpcomingStatuses = await FantasyTeamModel.find({ matchId, matchStatus: { $in: ["Upcoming", "Live"] } });
+
+            const idToToTotalPoints = {};
+
+            liveAndUpcomingStatuses.map(liveOrUpcomingStatus => {
+                return idToToTotalPoints[liveOrUpcomingStatus._id] = this.#totalFantasyPointsHandler(liveOrUpcomingStatus.players, playerToPoints);
+            });
+
+            const sortedUniqueScores = [...new Set(Object.values(idToToTotalPoints))].sort((a, b) => b - a);
+
+            const finalRanks = {};
+
+
+            sortedUniqueScores.slice(0, 3).forEach((score, index) => {
+                const rank = index + 1;
+
+                Object.entries(idToToTotalPoints).forEach(([id, points]) => {
+                    if (points === score) {
+                        finalRanks[id] = rank;
+                    }
+                });
+            });
+
+            const prizeMoney = await prizeDistributionModel.findOne({});
+            const prizeDistribution = prizeMoney.distribution[0].prize_distribution;
+            const idToPrize = {};
+            for (const [pid, rank] of Object.entries(finalRanks)) {
+                if (rank === 1) {
+                    idToPrize[pid] = prizeDistribution.get("1st");
+                } else if (rank === 2) {
+                    idToPrize[pid] = prizeDistribution.get("2nd");
+                } else if (rank === 3) {
+                    idToPrize[pid] = prizeDistribution.get("3rd");
+                }
+            }
+
+            Promise.all(liveAndUpcomingStatuses.map(liveOrUpcomingStatus => {
+                return FantasyTeamModel.findByIdAndUpdate(liveOrUpcomingStatus._id.toString(), {
+                    matchStatus: "Finished",
+                    totalFantasyPoints: idToToTotalPoints[liveOrUpcomingStatus._id],
+                    winningAmount: idToPrize[liveOrUpcomingStatus._id] || 0
+                })
+            }));
+        } catch (error) {
+            console.log(" FantasyTeams.js:230 ~ FantasyTeams ~ #winnersHandler ~ error:", error);
+            return
+        }
+    }
+
+    #totalFantasyPointsHandler(players, playerToPoints) {
+        return players.reduce((acc, id) => {
+            return acc + (playerToPoints[id] || 0);
+        }, 0)
     }
 }
 
