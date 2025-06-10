@@ -43,8 +43,8 @@ class PaymentsController {
             }
 
             const payload = {
-                userName: "M1743494839541",
-                authToken: "abd0c642b976a3a54d8e54be43fa941d4a653a7dd2a66e38f6b2574ccafb8eac",
+                userName: "M1749553500383",
+                authToken: "f4899caf840841f4e84b055e2dd87c27d1e496a8a20905174ed7cf4c65e71dab",
                 mobileNumber: userDetails.mobile,
                 accountHolderName,
                 ifscCode,
