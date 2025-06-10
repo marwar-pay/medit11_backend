@@ -4,6 +4,7 @@ import FantasyPointsPerMatchModel from "../models/fantasyPoint.model.js";
 import t20FantasyPointsSystem from "../config/t20FantasyPointsSystem.js";
 import FantasyTeamModel from "../models/fantasyTeam.model.js";
 import prizeDistributionModel from "../models/prizeDistribution.model.js";
+import UserModel from "../models/user.model.js";
 
 class FantasyTeams {
     constructor() {
@@ -269,6 +270,15 @@ class FantasyTeams {
                     winningAmount: idToPrize[liveOrUpcomingStatus._id] || 0
                 })
             }));
+            const bulkOps = liveAndUpcomingStatuses.map((status) => ({
+                updateOne: {
+                    filter: { _id: status.userId },
+                    update: { $inc: { wallet: idToPrize[status._id] || 0 } }
+                }
+            }));
+
+            await UserModel.bulkWrite(bulkOps);
+
         } catch (error) {
             console.log(" FantasyTeams.js:230 ~ FantasyTeams ~ #winnersHandler ~ error:", error);
             return

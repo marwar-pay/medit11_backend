@@ -8,6 +8,7 @@ import leagueRouter from "./routes/league.route.js";
 import squadRouter from "./routes/squad.route.js";
 import contestRouter from "./routes/contest.route.js";
 import fantasyTeamRouter from "./routes/fantasyTeam.route.js";
+import paymentsRouter from "./routes/payments.route.js";
 
 dotenv.config();
 
@@ -22,6 +23,7 @@ app.use("/api/v1/squad", squadRouter);
 app.use("/api/v1/league", leagueRouter);
 app.use("/api/v1/contests", contestRouter);
 app.use("/api/v1/fantasy-team", fantasyTeamRouter);
+app.use("/api/v1/payments", paymentsRouter)
 
 connectionDB().then(() => {
     app.listen(process.env.PORT, () => {
