@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import TransactionModel from "../models/transaction.model.js";
 import UserModel from "../models/user.model.js";
 import APIResponse from "../utilities/APIResponse.js";
+import Airpay from "../utilities/Airpay.js";
 
 class PaymentsController {
 
@@ -11,6 +12,44 @@ class PaymentsController {
             number += Math.floor(Math.random() * 10);
         }
         return number;
+    }
+
+    async deposit(req, res) {
+        try {
+            const user = req.user;
+            const { amount } = req.body;
+            const trxId = this.#generateTransactionId()
+            const transactionData = new TransactionModel({
+                userId: user._id.toString(),
+                type: "deposit",
+                trxId,
+            })
+
+            if (!transactionData) {
+                return res.status(500).json(new APIResponse(500, "Internal server error"));
+            }
+
+            const userDetails = await UserModel.findById(user._id.toString());
+            if (!userDetails) {
+                return res.status(401).json(new APIResponse(401, "Not a valid user"));
+            }
+
+            const qrData = await Airpay.generateUPI.bind(Airpay)({
+                orderid: trxId,
+                amount: amount,
+                buyerPhone: userDetails.mobile,
+                buyerEmail: userDetails.email,
+            })
+
+            console.log(JSON.parse(qrData))
+            const parsedData = JSON.parse(qrData);
+            if (parsedData.status == 200) {
+                return res.json(new APIResponse(200, "SUCCESS", { qr: parsedData.QRCODE_STRING }))
+            }
+            return res.status(500).json(new APIResponse(500, "Internal server error"));
+        } catch (error) {
+            return res.status(500).json(new APIResponse(500, "Internal server error"));
+        }
     }
 
     async withdraw(req, res) {

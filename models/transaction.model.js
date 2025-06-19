@@ -12,20 +12,17 @@ const TransactionSchema = new mongoose.Schema({
         required: true
     },
     accountNumber: {
-        type: String,
-        required: true
+        type: String
     },
     ifscCode: {
-        type: String,
-        required: true
+        type: String
     },
     amount: {
         type: Number,
         required: true
     },
     bankName: {
-        type: String,
-        required: true
+        type: String
     },
     status: {
         type: String,
